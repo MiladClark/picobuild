@@ -23,7 +23,11 @@ import {
   isImageFile
 } from '../services/image.service'
 import { exportAssets, cancelExportJob, estimateExportSize } from '../services/export.service'
-import { removeBackgroundToFile, detectSubjectBounds } from '../services/background-removal.service'
+import {
+  removeBackgroundToFile,
+  detectSubjectBounds,
+  type RemovalOptions
+} from '../services/background-removal.service'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('app:resourcesPath', () => {
@@ -110,12 +114,20 @@ export function registerIpcHandlers(): void {
     cancelExportJob(jobId)
   })
 
-  ipcMain.handle('background:remove', async (e, sourcePath: string, assetId: string) => {
-    const win = BrowserWindow.fromWebContents(e.sender)
-    return removeBackgroundToFile(sourcePath, assetId, (progress) => {
-      win?.webContents.send('background:progress', { assetId, progress, status: 'processing' })
-    })
-  })
+  ipcMain.handle(
+    'background:remove',
+    async (e, sourcePath: string, assetId: string, options?: RemovalOptions) => {
+      const win = BrowserWindow.fromWebContents(e.sender)
+      return removeBackgroundToFile(
+        sourcePath,
+        assetId,
+        (progress) => {
+          win?.webContents.send('background:progress', { assetId, progress, status: 'processing' })
+        },
+        options
+      )
+    }
+  )
 
   ipcMain.handle('image:detectSubject', (_e, path: string) => detectSubjectBounds(path))
 

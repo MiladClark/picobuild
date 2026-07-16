@@ -66,6 +66,25 @@ function writeRecent(list: RecentProject[]): void {
   writeFileSync(getRecentPath(), JSON.stringify(list, null, 2), 'utf-8')
 }
 
+/** Strip characters Windows/macOS forbid (or mishandle) in file names. */
+function sanitizeFileName(name: string): string {
+  const cleaned = name
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/\.+$/, '')
+  return cleaned.length > 0 ? cleaned : 'Untitled Project'
+}
+
+/** `<dir>/<baseName>.picobuild.json`, disambiguated with " (2)", " (3)", ... if it already exists. */
+function uniqueProjectFilePath(dir: string, baseName: string): string {
+  let candidate = join(dir, `${baseName}.picobuild.json`)
+  for (let n = 2; existsSync(candidate); n++) {
+    candidate = join(dir, `${baseName} (${n}).picobuild.json`)
+  }
+  return candidate
+}
+
 function addToRecent(project: Project, filePath: string): void {
   const list = readRecent().filter((r) => r.filePath !== filePath)
   list.unshift({
@@ -80,17 +99,27 @@ export function listRecentProjects(): RecentProject[] {
   return readRecent().filter((r) => existsSync(r.filePath))
 }
 
-export async function createProject(name?: string): Promise<{ project: Project; filePath: string } | null> {
-  const result = await dialog.showSaveDialog({
-    title: 'Create Project',
-    defaultPath: `${name || 'untitled-project'}.picobuild.json`,
-    filters: [{ name: 'PicoBuild Project', extensions: ['picobuild.json', 'json'] }]
+export async function createProject(
+  name?: string
+): Promise<{ project: Project; filePath: string } | null> {
+  // Ask for a project FOLDER, not a file path — the .picobuild.json name and
+  // location inside it are picked automatically, matching how other creative
+  // apps (Photoshop, Sketch, Premiere) let you organize projects freely
+  // rather than hand-naming a save file. Documents is just the dialog's
+  // starting point; the user can navigate anywhere (Desktop, an external
+  // drive, a client folder, ...) on both Windows and macOS.
+  const result = await dialog.showOpenDialog({
+    title: 'Choose a Folder for Your Project',
+    defaultPath: app.getPath('documents'),
+    properties: ['openDirectory', 'createDirectory']
   })
-  if (result.canceled || !result.filePath) return null
+  if (result.canceled || !result.filePaths[0]) return null
+
+  const projectName = name || 'Untitled Project'
+  const filePath = uniqueProjectFilePath(result.filePaths[0], sanitizeFileName(projectName))
 
   const id = randomUUID()
-  const project = createDefaultProject(name || 'Untitled Project', id)
-  const filePath = result.filePath
+  const project = createDefaultProject(projectName, id)
   project.filePath = filePath
   writeFileSync(filePath, JSON.stringify(project, null, 2), 'utf-8')
   addToRecent(project, filePath)
@@ -123,7 +152,9 @@ export function saveProject(project: Project): Project {
   return updated
 }
 
-export async function duplicateProject(filePath: string): Promise<{ project: Project; filePath: string } | null> {
+export async function duplicateProject(
+  filePath: string
+): Promise<{ project: Project; filePath: string } | null> {
   const { project } = openProjectPath(filePath)
   const result = await dialog.showSaveDialog({
     title: 'Duplicate Project',

@@ -20,6 +20,12 @@ export interface SubjectBounds {
 
 export type RemovalProgress = (progress: number) => void
 
+/** 'best' (medium model) gives noticeably cleaner masks than 'fast' (small); despeckle is on by default. */
+export interface RemovalOptions {
+  quality?: 'fast' | 'best'
+  despeckle?: boolean
+}
+
 /** Rewrite an app.asar path to its asar.unpacked twin (native deps are unpacked). */
 function unpacked(p: string): string {
   const seg = `app.asar${sep}`
@@ -57,7 +63,8 @@ function workerPath(): string {
  */
 export async function computeCutout(
   sourcePath: string,
-  onProgress?: RemovalProgress
+  onProgress?: RemovalProgress,
+  model: 'small' | 'medium' = 'medium'
 ): Promise<Buffer> {
   // Normalize to PNG in the main process (sharp handles every input format),
   // then hand the bytes to the worker so it only ever decodes PNG.
@@ -108,7 +115,7 @@ export async function computeCutout(
       imglyPath: imglyEntry(),
       publicPath: imglyPublicPath(),
       inputData: inputPng.toString('base64'),
-      model: 'small'
+      model
     })
   })
 }
@@ -120,11 +127,16 @@ export async function computeCutout(
 export async function removeBackgroundToFile(
   sourcePath: string,
   assetId: string,
-  onProgress?: RemovalProgress
+  onProgress?: RemovalProgress,
+  options?: RemovalOptions
 ): Promise<string> {
   onProgress?.(5)
-  const cutout = await computeCutout(sourcePath, onProgress)
-  onProgress?.(92)
+  const model = options?.quality === 'fast' ? 'small' : 'medium'
+  const rawCutout = await computeCutout(sourcePath, onProgress, model)
+  onProgress?.(88)
+
+  const cutout = options?.despeckle === false ? rawCutout : await despeckleCutout(rawCutout)
+  onProgress?.(95)
 
   const cacheDir = join(dirname(sourcePath), '.picobuild-cache')
   if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true })
@@ -213,23 +225,31 @@ interface ComponentBounds {
   area: number
 }
 
+interface ComponentLabeling {
+  /** 1 where alpha clears `threshold` (the raw, undilated foreground test). */
+  isFg: Uint8Array
+  /** Component id per pixel (shared across dilation-bridged blobs); -1 = background. */
+  labels: Int32Array
+  bestLabel: number
+  bestArea: number
+}
+
 /**
- * Find the dominant connected blob of pixels whose alpha clears `threshold`
- * and return its bounding box. Connectivity is computed on a mildly dilated
- * copy of the mask (so nearby parts of one subject, e.g. a pair of earrings,
- * count as a single blob) while the box itself is measured from the true
- * (undilated) pixels — this rejects distant, disconnected noise (stray bright
- * specks, segmentation artifacts) instead of letting a single outlier pixel
- * blow out the bounds.
+ * Label connected blobs of pixels whose alpha clears `threshold`. Connectivity
+ * is computed on a mildly dilated copy of the mask (so nearby parts of one
+ * subject, e.g. a pair of earrings, count as a single blob), while each
+ * component's area is measured from the true (undilated) pixels — this lets
+ * distant, disconnected noise (stray bright specks, segmentation artifacts)
+ * lose to the real subject on pixel count instead of quietly merging into it.
  */
-function largestAlphaComponentBounds(
+function labelAlphaComponents(
   data: Buffer,
   width: number,
   height: number,
   channels: number,
   mergeRadius: number,
   threshold: number
-): ComponentBounds | null {
+): ComponentLabeling {
   const size = width * height
   const isFg = new Uint8Array(size)
   for (let i = 0; i < size; i++) {
@@ -246,37 +266,28 @@ function largestAlphaComponentBounds(
         )
       : isFg
 
-  const visited = new Uint8Array(size)
+  const labels = new Int32Array(size).fill(-1)
   const queue = new Int32Array(size)
-  let best: ComponentBounds | null = null
+  let bestLabel = -1
+  let bestArea = 0
+  let nextLabel = 0
 
   for (let start = 0; start < size; start++) {
-    if (!connectMask[start] || visited[start]) continue
+    if (!connectMask[start] || labels[start] !== -1) continue
 
+    const label = nextLabel++
     let qHead = 0
     let qTail = 0
     queue[qTail++] = start
-    visited[start] = 1
-
-    let minX = width
-    let minY = height
-    let maxX = -1
-    let maxY = -1
+    labels[start] = label
     let area = 0
 
     while (qHead < qTail) {
       const idx = queue[qHead++]
+      if (isFg[idx]) area++
+
       const x = idx % width
       const y = (idx / width) | 0
-
-      if (isFg[idx]) {
-        area++
-        if (x < minX) minX = x
-        if (x > maxX) maxX = x
-        if (y < minY) minY = y
-        if (y > maxY) maxY = y
-      }
-
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (dx === 0 && dy === 0) continue
@@ -284,19 +295,57 @@ function largestAlphaComponentBounds(
           const ny = y + dy
           if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
           const nIdx = ny * width + nx
-          if (!connectMask[nIdx] || visited[nIdx]) continue
-          visited[nIdx] = 1
+          if (!connectMask[nIdx] || labels[nIdx] !== -1) continue
+          labels[nIdx] = label
           queue[qTail++] = nIdx
         }
       }
     }
 
-    if (area > 0 && (!best || area > best.area)) {
-      best = { minX, minY, maxX, maxY, area }
+    if (area > bestArea) {
+      bestArea = area
+      bestLabel = label
     }
   }
 
-  return best
+  return { isFg, labels, bestLabel, bestArea }
+}
+
+/** Bounding box of the true (undilated) foreground pixels belonging to the winning label. */
+function boundsFromLabeling(labeling: ComponentLabeling, width: number): ComponentBounds | null {
+  const { isFg, labels, bestLabel } = labeling
+  if (bestLabel < 0) return null
+
+  let minX = width
+  let minY = Infinity
+  let maxX = -1
+  let maxY = -1
+  let area = 0
+
+  for (let idx = 0; idx < labels.length; idx++) {
+    if (labels[idx] !== bestLabel || !isFg[idx]) continue
+    const x = idx % width
+    const y = (idx / width) | 0
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+    area++
+  }
+
+  if (area === 0) return null
+  return { minX, minY, maxX, maxY, area }
+}
+
+/** Every pixel reachable (via the dilated connectivity) from the winning label — includes its soft/feathered halo, not just the strict-threshold core. */
+function keepMaskFromLabeling(labeling: ComponentLabeling): Uint8Array {
+  const { labels, bestLabel } = labeling
+  const mask = new Uint8Array(labels.length)
+  if (bestLabel < 0) return mask
+  for (let i = 0; i < labels.length; i++) {
+    mask[i] = labels[i] === bestLabel ? 1 : 0
+  }
+  return mask
 }
 
 /**
@@ -336,7 +385,7 @@ async function alphaBounds(rgbaPng: Buffer): Promise<SubjectBounds | null> {
 
   let component: ComponentBounds | null = null
   for (const threshold of CORE_ALPHA_THRESHOLDS) {
-    const candidate = largestAlphaComponentBounds(
+    const labeling = labelAlphaComponents(
       data,
       info.width,
       info.height,
@@ -344,9 +393,9 @@ async function alphaBounds(rgbaPng: Buffer): Promise<SubjectBounds | null> {
       mergeRadius,
       threshold
     )
-    if (candidate && candidate.area >= minArea) {
-      component = candidate
-      break
+    if (labeling.bestLabel >= 0 && labeling.bestArea >= minArea) {
+      component = boundsFromLabeling(labeling, info.width)
+      if (component) break
     }
   }
   if (!component) return null
@@ -377,6 +426,102 @@ async function alphaBounds(rgbaPng: Buffer): Promise<SubjectBounds | null> {
 }
 
 /**
+ * Zero out (make transparent) any alpha region that isn't part of the
+ * dominant subject blob. Segmentation models — especially on busy or
+ * low-contrast backgrounds — often leave faint, disconnected residue (soft
+ * shadow ghosts, noise) that a naive "keep any non-zero alpha" cutout ships
+ * as visible background patches. This reuses the same strict-first threshold
+ * ladder as `alphaBounds` to find the real subject, then fades everything
+ * else in the frame to fully transparent, working on a downscaled mask
+ * (cheap) and applying it to the full-resolution alpha (correct output).
+ */
+async function despeckleCutout(rgbaPng: Buffer): Promise<Buffer> {
+  const meta = await sharp(rgbaPng).metadata()
+  const imageWidth = meta.width ?? 0
+  const imageHeight = meta.height ?? 0
+  if (imageWidth === 0 || imageHeight === 0) return rgbaPng
+
+  const scale = Math.min(1, SCAN_MAX_DIM / Math.max(imageWidth, imageHeight))
+  const scanW = Math.max(1, Math.round(imageWidth * scale))
+  const scanH = Math.max(1, Math.round(imageHeight * scale))
+
+  const { data: scanData, info: scanInfo } = await sharp(rgbaPng)
+    .resize(scanW, scanH, { fit: 'fill' })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+
+  const mergeRadius = Math.min(
+    MERGE_RADIUS_MAX,
+    Math.max(
+      MERGE_RADIUS_MIN,
+      Math.round(Math.min(scanInfo.width, scanInfo.height) * MERGE_RADIUS_FRACTION)
+    )
+  )
+  const scanArea = scanInfo.width * scanInfo.height
+  const minArea = scanArea * MIN_COMPONENT_AREA_FRACTION
+
+  let keepMask: Uint8Array | null = null
+  for (const threshold of CORE_ALPHA_THRESHOLDS) {
+    const labeling = labelAlphaComponents(
+      scanData,
+      scanInfo.width,
+      scanInfo.height,
+      scanInfo.channels,
+      mergeRadius,
+      threshold
+    )
+    if (labeling.bestLabel >= 0 && labeling.bestArea >= minArea) {
+      keepMask = keepMaskFromLabeling(labeling)
+      break
+    }
+  }
+  // Nothing confidently found (e.g. a genuinely soft/diffuse subject with no
+  // solid core anywhere) — leave the cutout untouched rather than guessing.
+  if (!keepMask) return rgbaPng
+
+  // Grow the keep region a little further so this can't nibble into the
+  // subject's own soft, gradually-fading edge.
+  const featherRadius = Math.max(2, Math.round(mergeRadius * 0.6))
+  const grownMask = dilateVertical(
+    dilateHorizontal(keepMask, scanInfo.width, scanInfo.height, featherRadius),
+    scanInfo.width,
+    scanInfo.height,
+    featherRadius
+  )
+
+  const maskBytes = Buffer.alloc(grownMask.length)
+  for (let i = 0; i < grownMask.length; i++) maskBytes[i] = grownMask[i] ? 255 : 0
+
+  // Upscale with a smooth kernel: the mask boundary sits out in the
+  // noise/halo region well outside the subject's true edge, so a soft ramp
+  // there just fades the removed residue out gently instead of a hard seam.
+  const upscaledMask = await sharp(maskBytes, {
+    raw: { width: scanInfo.width, height: scanInfo.height, channels: 1 }
+  })
+    .resize(imageWidth, imageHeight, { kernel: 'cubic' })
+    .raw()
+    .toBuffer()
+
+  const { data: fullData, info: fullInfo } = await sharp(rgbaPng)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+
+  const channels = fullInfo.channels
+  const out = Buffer.from(fullData)
+  const pixelCount = imageWidth * imageHeight
+  for (let p = 0; p < pixelCount; p++) {
+    const alphaIdx = p * channels + (channels - 1)
+    out[alphaIdx] = Math.round((out[alphaIdx] * upscaledMask[p]) / 255)
+  }
+
+  return sharp(out, { raw: { width: imageWidth, height: imageHeight, channels } })
+    .png()
+    .toBuffer()
+}
+
+/**
  * Detect the product/subject bounds in an image. If the image already has a
  * meaningful alpha channel (e.g. a background-removed asset) its transparency
  * is used directly; otherwise the segmentation model produces a mask.
@@ -396,7 +541,7 @@ export async function detectSubjectBounds(path: string): Promise<SubjectBounds> 
 
   const rgba = usableAlpha
     ? await sharp(path).ensureAlpha().png().toBuffer()
-    : await computeCutout(path)
+    : await computeCutout(path, undefined, 'medium')
 
   const bounds = await alphaBounds(rgba)
   if (bounds) return bounds

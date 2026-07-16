@@ -103,11 +103,15 @@ export function TopBar(): React.JSX.Element {
   const { theme, toggleTheme } = useThemeStore()
 
   const isBuilder = location.pathname === '/builder'
+  // macOS renders its own floating traffic lights over the leftmost region
+  // (see trafficLightPosition in main/index.ts) instead of WindowControls —
+  // reserve room so the logo/nav/back button don't sit underneath them.
+  const isMac = window.electron.process.platform === 'darwin'
 
   if (focusMode && isBuilder) {
     return (
       <header className="flex h-[var(--bar-height)] shrink-0 border-b border-[var(--border)] bg-[var(--bg-topbar)]">
-        <div className="titlebar-drag topbar-section bar-x min-w-0 flex-1">
+        <div className={cn('titlebar-drag topbar-section bar-x min-w-0 flex-1', isMac && 'pl-20')}>
           <Button
             size="bar"
             variant="secondary"
@@ -145,7 +149,7 @@ export function TopBar(): React.JSX.Element {
 
   return (
     <header className="flex h-[var(--bar-height)] shrink-0 border-b border-[var(--border)] bg-[var(--bg-topbar)]">
-      <div className="titlebar-drag topbar-section bar-x min-w-0 flex-1">
+      <div className={cn('titlebar-drag topbar-section bar-x min-w-0 flex-1', isMac && 'pl-20')}>
         <Logo />
 
         <BarDivider />

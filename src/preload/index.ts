@@ -46,7 +46,8 @@ const api: PicoBuildAPI = {
     }
   },
   background: {
-    remove: (sourcePath, assetId) => ipcRenderer.invoke('background:remove', sourcePath, assetId),
+    remove: (sourcePath, assetId, options) =>
+      ipcRenderer.invoke('background:remove', sourcePath, assetId, options),
     onProgress: (cb) => {
       const handler = (_: unknown, p: unknown): void => cb(p as Parameters<typeof cb>[0])
       ipcRenderer.on('background:progress', handler)

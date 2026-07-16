@@ -2,11 +2,30 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Wand2, CheckCircle2, ChevronDown } from 'lucide-react'
-import { Section, Button, ChipGroup } from '@renderer/components/ui'
+import { Section, Button, ChipGroup, Toggle } from '@renderer/components/ui'
 import { ColorPickerPopover, type ColorPickerTab } from '@renderer/components/ui/color-picker'
 import { useProjectStore } from '@renderer/stores/project-store'
 import { invalidateImagePreview } from '@renderer/hooks/use-image-loader'
 import { cn } from '@renderer/lib/utils'
+
+const QUALITY_KEY = 'picobuild.bg-removal-quality'
+const DESPECKLE_KEY = 'picobuild.bg-removal-despeckle'
+
+function loadQuality(): 'fast' | 'best' {
+  try {
+    return localStorage.getItem(QUALITY_KEY) === 'fast' ? 'fast' : 'best'
+  } catch {
+    return 'best'
+  }
+}
+
+function loadDespeckle(): boolean {
+  try {
+    return localStorage.getItem(DESPECKLE_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
 
 export function BackgroundPanel(): React.JSX.Element {
   const { t } = useTranslation()
@@ -17,6 +36,8 @@ export function BackgroundPanel(): React.JSX.Element {
   const [removing, setRemoving] = useState(false)
   const [progress, setProgress] = useState(0)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [quality, setQuality] = useState<'fast' | 'best'>(loadQuality)
+  const [despeckle, setDespeckle] = useState(loadDespeckle)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const removingAssetId = useRef<string | null>(null)
 
@@ -52,7 +73,10 @@ export function BackgroundPanel(): React.JSX.Element {
     removingAssetId.current = asset.id
     try {
       updateAsset(asset.id, { status: 'processing' })
-      const outputPath = await window.api.background.remove(asset.sourcePath, asset.id)
+      const outputPath = await window.api.background.remove(asset.sourcePath, asset.id, {
+        quality,
+        despeckle
+      })
       invalidateImagePreview(outputPath)
       if (asset.processedPath) invalidateImagePreview(asset.processedPath)
       updateAsset(asset.id, {
@@ -137,6 +161,37 @@ export function BackgroundPanel(): React.JSX.Element {
             <p className="text-xs leading-relaxed text-[var(--text-muted)]">
               AI-powered background removal. Runs fully offline on your device.
             </p>
+
+            <ChipGroup
+              options={[
+                { label: 'Best quality', value: 'best' },
+                { label: 'Fast', value: 'fast' }
+              ]}
+              value={quality}
+              onChange={(v) => {
+                const next = v as 'fast' | 'best'
+                setQuality(next)
+                try {
+                  localStorage.setItem(QUALITY_KEY, next)
+                } catch {
+                  /* ignore */
+                }
+              }}
+            />
+
+            <Toggle
+              label="Clean up leftover residue"
+              checked={despeckle}
+              onChange={(v) => {
+                setDespeckle(v)
+                try {
+                  localStorage.setItem(DESPECKLE_KEY, v ? 'on' : 'off')
+                } catch {
+                  /* ignore */
+                }
+              }}
+            />
+
             <Button
               size="md"
               variant="primary"

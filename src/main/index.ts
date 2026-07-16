@@ -5,15 +5,21 @@ import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc/handlers'
 
 function createWindow(): void {
+  const isMac = process.platform === 'darwin'
+
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 700,
     show: false,
-    frame: false,
-    autoHideMenuBar: true,
     backgroundColor: '#111113',
+    // macOS keeps its native traffic-light buttons (hidden title bar, no
+    // frame text) since the custom WindowControls renders nothing there;
+    // Windows/Linux go fully frameless and rely on WindowControls instead.
+    ...(isMac
+      ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 16, y: 15 } }
+      : { frame: false, autoHideMenuBar: true }),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

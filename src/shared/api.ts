@@ -8,6 +8,11 @@ export interface BgRemovalProgress {
   error?: string
 }
 
+export interface RemovalOptions {
+  quality?: 'fast' | 'best'
+  despeckle?: boolean
+}
+
 export interface SubjectBounds {
   left: number
   top: number
@@ -55,7 +60,7 @@ export interface PicoBuildAPI {
     ) => () => void
   }
   background: {
-    remove: (sourcePath: string, assetId: string) => Promise<string>
+    remove: (sourcePath: string, assetId: string, options?: RemovalOptions) => Promise<string>
     onProgress: (cb: (p: BgRemovalProgress) => void) => () => void
   }
   window: {
