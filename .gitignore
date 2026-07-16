@@ -1,0 +1,8 @@
+node_modules
+dist
+out
+.DS_Store
+.eslintcache
+*.log*
+src/renderer/public/onnxruntime-web/
+src/renderer/public/bg-removal-data/

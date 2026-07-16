@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>PicoBuild</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' picobuild-asset:; script-src 'self' 'wasm-unsafe-eval' blob: picobuild-asset:; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: blob:; connect-src 'self' https: blob: picobuild-asset:; worker-src 'self' blob:"
+    />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

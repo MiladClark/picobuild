@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "picobuild-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--config", "vite.preview.config.ts"],
+      "cwd": "F:/DEV/picobuild",
+      "port": 3014
+    }
+  ]
+}

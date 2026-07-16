@@ -1,0 +1,151 @@
+{
+  "app": {
+    "name": "PicoBuild",
+    "tagline": "Professional image builder for product photography"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "projects": "Projects",
+    "imageBuilder": "Image Builder",
+    "gifBuilder": "GIF Builder",
+    "assets": "Assets",
+    "exports": "Exports",
+    "settings": "Settings",
+    "pro": "Pro"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Recent projects and quick actions",
+    "newProject": "New Project",
+    "openProject": "Open Project",
+    "recentProjects": "Recent Projects",
+    "noRecent": "No recent projects yet",
+    "getStarted": "Create a new project to get started"
+  },
+  "projects": {
+    "title": "Projects",
+    "create": "Create Project",
+    "open": "Open",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "name": "Project Name",
+    "namePlaceholder": "My Product Shots",
+    "confirmDelete": "Are you sure you want to delete this project?",
+    "deleted": "Project deleted",
+    "created": "Project created",
+    "saved": "Project saved",
+    "opened": "Project opened"
+  },
+  "imageBuilder": {
+    "title": "Image Builder",
+    "noProject": "Open or create a project to start editing",
+    "import": "Import Images",
+    "focusMode": "Focus Mode",
+    "exitFocus": "Exit Focus Mode"
+  },
+  "panels": {
+    "importedFiles": "Imported Files",
+    "layers": "Layers",
+    "properties": "Properties",
+    "imageSettings": "Image Settings",
+    "background": "Background",
+    "adjustments": "Adjustments",
+    "export": "Export"
+  },
+  "canvas": {
+    "width": "Width",
+    "height": "Height",
+    "unit": "Unit",
+    "dpi": "DPI",
+    "aspectLock": "Lock aspect ratio",
+    "presets": "Aspect Presets",
+    "grid": "Grid",
+    "ruler": "Ruler",
+    "snapToGrid": "Snap to Grid",
+    "smartGuides": "Smart Guides",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "fitToScreen": "Fit to Screen",
+    "margins": "Margins",
+    "marginTop": "Top",
+    "marginRight": "Right",
+    "marginBottom": "Bottom",
+    "marginLeft": "Left",
+    "centerH": "Center Horizontal",
+    "centerV": "Center Vertical"
+  },
+  "background": {
+    "title": "Background",
+    "type": "Type",
+    "color": "Color",
+    "transparent": "Transparent",
+    "gradient": "Gradient",
+    "gradientEnd": "End Color",
+    "removeBg": "Remove Background",
+    "removing": "Removing background...",
+    "removed": "Background removed"
+  },
+  "adjustments": {
+    "title": "Adjustments",
+    "brightness": "Brightness",
+    "exposure": "Exposure",
+    "contrast": "Contrast",
+    "saturation": "Saturation",
+    "temperature": "Temperature",
+    "tint": "Tint",
+    "hue": "Hue",
+    "reset": "Reset"
+  },
+  "export": {
+    "title": "Export",
+    "format": "Format",
+    "quality": "Quality",
+    "renamePattern": "Rename Pattern",
+    "outputDir": "Output Folder",
+    "selectFolder": "Select Folder",
+    "preview": "Preview Names",
+    "start": "Start Export",
+    "cancel": "Cancel Export",
+    "retry": "Retry Failed",
+    "completed": "Export completed",
+    "failed": "Export failed",
+    "inProgress": "Exporting..."
+  },
+  "assets": {
+    "title": "Assets",
+    "search": "Search images...",
+    "noAssets": "No images imported",
+    "missing": "File missing",
+    "selectAll": "Select All",
+    "deleteSelected": "Delete Selected"
+  },
+  "settings": {
+    "title": "Settings",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language",
+    "english": "English"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "close": "Close",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "unsavedChanges": "You have unsaved changes. Do you want to save before leaving?",
+    "noProjectOpen": "No project open"
+  },
+  "tools": {
+    "select": "Select",
+    "move": "Move",
+    "crop": "Crop",
+    "rotate": "Rotate",
+    "flipH": "Flip Horizontal",
+    "flipV": "Flip Vertical"
+  }
+}
