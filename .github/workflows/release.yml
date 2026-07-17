@@ -20,6 +20,8 @@ jobs:
         include:
           - os: windows-latest
             build_args: --win
+            platform: windows
+            artifact_glob: dist/*-portable.exe
           # sharp/onnxruntime-node ship arch-specific native binaries as npm
           # optionalDependencies (@img/sharp-darwin-arm64 vs -x64) — `npm ci`
           # only installs the ones matching the CURRENT host's arch, so a
@@ -28,8 +30,12 @@ jobs:
           # single-arch runners each install only their own native deps.
           - os: macos-14 # Apple Silicon
             build_args: --mac --arm64
+            platform: macos-arm64
+            artifact_glob: dist/*-arm64.zip
           - os: macos-13 # Intel
             build_args: --mac --x64
+            platform: macos-x64
+            artifact_glob: dist/*-x64.zip
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -59,6 +65,46 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # electron-builder already uploaded this file to the (draft) GitHub
+      # release above; this just checksums the local copy it left in dist/ so
+      # the final job can register it with DevTune's OTA update-check API.
+      # Registration itself happens in publish-release, AFTER the release is
+      # flipped out of draft — draft release assets 404 for anonymous
+      # downloads, so registering earlier would advertise an update real
+      # users couldn't actually download yet.
+      - name: Prepare release-info manifest
+        shell: bash
+        run: |
+          set -e
+          FILE=$(ls ${{ matrix.artifact_glob }} | head -n 1)
+          if [ -z "$FILE" ]; then
+            echo "::error::No artifact matched ${{ matrix.artifact_glob }}"
+            exit 1
+          fi
+          VERSION="$(node -p "require('./package.json').version")"
+          node -e "
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const file = process.argv[1];
+            const hash = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+            const info = {
+              platform: '${{ matrix.platform }}',
+              version: '$VERSION',
+              fileName: require('path').basename(file),
+              sha256: hash,
+              sizeBytes: fs.statSync(file).size,
+            };
+            fs.writeFileSync('release-info.json', JSON.stringify(info, null, 2));
+            console.log(info);
+          " "$FILE"
+
+      - name: Upload release-info artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-info-${{ matrix.platform }}
+          path: release-info.json
+          retention-days: 1
+
   # All three jobs upload to the same draft release in parallel (see the
   # releaseType comment in electron-builder.yml). Only after all of them have
   # succeeded do we flip it from draft to a real, visible release — a single
@@ -67,7 +113,34 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     steps:
+      - name: Download release-info manifests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-info-*
+          path: release-info
+          merge-multiple: true
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "${{ github.ref_name }}" --draft=false --repo MiladClark/picobuild
+
+      - name: Register releases with DevTune
+        env:
+          RELEASE_REGISTER_TOKEN: ${{ secrets.RELEASE_REGISTER_TOKEN }}
+        run: |
+          set -e
+          for manifest in release-info/*.json; do
+            [ -e "$manifest" ] || continue
+            version=$(node -p "require('./$manifest').version")
+            fileName=$(node -p "require('./$manifest').fileName")
+            sha256=$(node -p "require('./$manifest').sha256")
+            size=$(node -p "require('./$manifest').sizeBytes")
+            platform=$(node -p "require('./$manifest').platform")
+            downloadUrl="https://github.com/MiladClark/picobuild/releases/download/${{ github.ref_name }}/${fileName}"
+            echo "Registering picobuild $platform $version -> $downloadUrl"
+            curl -sS -f -X POST "https://devtune.app/api/admin/releases" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${RELEASE_REGISTER_TOKEN}" \
+              -d "{\"product\":\"picobuild\",\"version\":\"${version}\",\"platform\":\"${platform}\",\"downloadUrl\":\"${downloadUrl}\",\"checksum\":\"${sha256}\",\"sizeBytes\":${size}}"
+          done
