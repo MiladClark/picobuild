@@ -74,14 +74,14 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
-  // Required-update gate shortly after launch (optional updates surface via
-  // the Account page's manual/periodic check instead of an interruptive prompt).
+  // Update check shortly after launch — notifies for any available update,
+  // required or not, via the global UpdateRoot banner/modal.
   setTimeout(async () => {
     const res = await checkForUpdates(getLicenseState().serverUrl)
-    if (res.ok && res.updateAvailable && res.required && res.latest) {
+    if (res.ok && res.updateAvailable && res.latest) {
       notifyUpdateAvailable({
         version: res.latest.version,
-        required: true,
+        required: !!res.required,
         releaseNotes: res.latest.releaseNotes
       })
     }

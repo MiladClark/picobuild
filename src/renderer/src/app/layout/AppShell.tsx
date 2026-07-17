@@ -4,6 +4,7 @@ import { TopBar } from './TopBar'
 import { BottomBar } from './BottomBar'
 import { BuilderLeftPanel } from './BuilderLeftPanel'
 import { BuilderRightPanel } from './BuilderRightPanel'
+import { UpdateRoot } from '../../components/UpdateRoot'
 
 export function AppShell(): React.JSX.Element {
   const location = useLocation()
@@ -11,6 +12,7 @@ export function AppShell(): React.JSX.Element {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)]">
+      <UpdateRoot />
       <TopBar />
       <div className="flex min-h-0 flex-1">
         {isBuilder && <BuilderLeftPanel />}
