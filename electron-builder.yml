@@ -119,4 +119,8 @@ publish:
   provider: github
   owner: MiladClark
   repo: picobuild
-  releaseType: release
+  # Windows and macOS jobs upload to the same release in parallel. If each
+  # tried to finalize/publish it themselves ("release"), the second one to
+  # finish can wipe out assets the first already uploaded. Staying in draft
+  # here avoids that race; a final CI step publishes it once both are done.
+  releaseType: draft

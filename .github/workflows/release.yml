@@ -50,3 +50,16 @@ jobs:
         run: npm run ${{ matrix.script }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Windows and macOS upload to the same draft release in parallel (see the
+  # releaseType comment in electron-builder.yml). Only after BOTH have
+  # succeeded do we flip it from draft to a real, visible release — a single
+  # publish step, so there's no race between the two platform jobs.
+  publish-release:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --draft=false --repo MiladClark/picobuild
