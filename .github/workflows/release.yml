@@ -19,9 +19,17 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            script: release:win
-          - os: macos-latest
-            script: release:mac
+            build_args: --win
+          # sharp/onnxruntime-node ship arch-specific native binaries as npm
+          # optionalDependencies (@img/sharp-darwin-arm64 vs -x64) — `npm ci`
+          # only installs the ones matching the CURRENT host's arch, so a
+          # single macOS runner building both x64+arm64 would silently ship
+          # one arch without (or with the wrong) native modules. Two
+          # single-arch runners each install only their own native deps.
+          - os: macos-14 # Apple Silicon
+            build_args: --mac --arm64
+          - os: macos-13 # Intel
+            build_args: --mac --x64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -47,14 +55,14 @@ jobs:
         run: npm ci
 
       - name: Build and publish (${{ matrix.os }})
-        run: npm run ${{ matrix.script }}
+        run: npm run build && npx electron-builder ${{ matrix.build_args }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Windows and macOS upload to the same draft release in parallel (see the
-  # releaseType comment in electron-builder.yml). Only after BOTH have
+  # All three jobs upload to the same draft release in parallel (see the
+  # releaseType comment in electron-builder.yml). Only after all of them have
   # succeeded do we flip it from draft to a real, visible release — a single
-  # publish step, so there's no race between the two platform jobs.
+  # publish step, so there's no race between the platform jobs.
   publish-release:
     needs: release
     runs-on: ubuntu-latest

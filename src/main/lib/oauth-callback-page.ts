@@ -25,10 +25,9 @@ export function oauthCallbackHtml(kind: OAuthCallbackPageKind = 'success'): stri
   const isOk = kind === 'success'
   const accent = isOk ? '#6d5df0' : '#e11d48'
   const accentSoft = isOk ? 'rgba(109, 93, 240, 0.14)' : 'rgba(225, 29, 72, 0.12)'
-  const icon =
-    isOk
-      ? `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${accent}" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`
-      : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${accent}" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>`
+  const icon = isOk
+    ? `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${accent}" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`
+    : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${accent}" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>`
 
   return `<!DOCTYPE html>
 <html lang="en">

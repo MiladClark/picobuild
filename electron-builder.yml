@@ -1,4 +1,4 @@
-appId: com.electron.app
+appId: com.devtune.picobuild
 productName: picobuild
 directories:
   buildResources: build

@@ -5,6 +5,7 @@ import {
   FolderOpen,
   Image,
   Settings,
+  User,
   Save,
   Upload,
   Minimize2,
@@ -184,6 +185,21 @@ export function TopBar(): React.JSX.Element {
             <BarDivider />
           </>
         )}
+
+        <NavLink
+          to="/account"
+          className={({ isActive }) =>
+            cn(
+              'flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] transition-colors',
+              isActive
+                ? 'bg-[var(--accent-muted)] text-[var(--accent-hover)]'
+                : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+            )
+          }
+          title="Account"
+        >
+          <User size={14} />
+        </NavLink>
 
         <NavLink
           to="/settings"

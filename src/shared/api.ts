@@ -1,5 +1,12 @@
 import type { Project, RecentProject, ImageMetadata } from '../shared/types/project'
 import type { ExportProgress, ExportResult } from '../main/services/export.service'
+import type { LicenseState, ActivateOptions, LicenseActionResult } from '../shared/types/license'
+import type { EnforcedEntitlements } from '../shared/entitlements-map'
+import type {
+  UpdateProgress,
+  UpdateAvailablePayload,
+  UpdateCheckResult
+} from '../shared/types/update'
 
 export interface BgRemovalProgress {
   assetId: string
@@ -69,5 +76,38 @@ export interface PicoBuildAPI {
     close: () => Promise<void>
     isMaximized: () => Promise<boolean>
     onMaximizedChange: (cb: (maximized: boolean) => void) => () => void
+  }
+  system: {
+    openExternal: (url: string) => Promise<void>
+  }
+  auth: {
+    start: () => Promise<LicenseActionResult>
+    enterGuest: () => Promise<LicenseState>
+    exitGuest: () => Promise<LicenseState>
+    signOut: () => Promise<LicenseActionResult>
+    status: () => Promise<LicenseState>
+  }
+  license: {
+    state: () => Promise<LicenseState>
+    entitlements: () => Promise<EnforcedEntitlements>
+    activate: (opts: ActivateOptions) => Promise<LicenseActionResult>
+    refresh: () => Promise<LicenseActionResult>
+    clear: () => Promise<LicenseState>
+    setServerUrl: (url: string) => Promise<LicenseState>
+    poll: () => Promise<void>
+    onChanged: (cb: (state: LicenseState) => void) => () => void
+  }
+  updates: {
+    check: () => Promise<UpdateCheckResult>
+    fetchPending: () => Promise<{ ok: boolean; error?: string }>
+    getPending: () => Promise<{
+      version: string
+      downloadUrl: string
+      checksum: string | null
+    } | null>
+    start: (version?: string) => Promise<{ ok: boolean; error?: string }>
+    cancel: () => Promise<{ ok: boolean; error?: string }>
+    onAvailable: (cb: (payload: UpdateAvailablePayload) => void) => () => void
+    onProgress: (cb: (progress: UpdateProgress) => void) => () => void
   }
 }

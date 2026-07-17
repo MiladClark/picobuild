@@ -49,6 +49,24 @@ if (import.meta.env.DEV && !('api' in window)) {
 
   const noop = (): void => {}
 
+  // Signed-in Pro by default so the preview shows the full app, not the login gate.
+  const mockLicenseState = {
+    activated: true,
+    valid: true,
+    inGrace: false,
+    signedIn: true,
+    guestMode: false,
+    plan: 'picobuild_pro',
+    tier: 'pro',
+    email: 'demo@devtune.dev',
+    userName: 'Demo User',
+    seatsUsed: 1,
+    seatLimit: 2,
+    serverUrl: 'https://devtune.app',
+    appVersion: '1.0.0',
+    deviceLabel: 'Preview'
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(window as any).electron = {
     process: { platform: 'win32', versions: { electron: 'dev', chrome: 'dev', node: 'dev' } },
@@ -122,6 +140,50 @@ if (import.meta.env.DEV && !('api' in window)) {
       close: async () => undefined,
       isMaximized: async () => false,
       onMaximizedChange: () => noop
+    },
+    system: {
+      openExternal: async (url: string) => {
+        window.open(url, '_blank')
+      }
+    },
+    auth: {
+      start: async () => ({ ok: true, state: mockLicenseState }),
+      enterGuest: async () => mockLicenseState,
+      exitGuest: async () => mockLicenseState,
+      signOut: async () => ({ ok: true, state: mockLicenseState }),
+      status: async () => mockLicenseState
+    },
+    license: {
+      state: async () => mockLicenseState,
+      entitlements: async () => ({
+        plan: 'pro',
+        maxProjects: Number.POSITIVE_INFINITY,
+        maxDevices: 2,
+        unlimitedDevices: false,
+        batchExport: true,
+        maxExportBatch: Number.POSITIVE_INFINITY,
+        unlimitedExportBatch: true,
+        bgRemovalHQ: true,
+        noWatermark: true,
+        premiumBackgrounds: true,
+        cloudBackup: true,
+        betaChannel: true
+      }),
+      activate: async () => ({ ok: true, state: mockLicenseState }),
+      refresh: async () => ({ ok: true, state: mockLicenseState }),
+      clear: async () => mockLicenseState,
+      setServerUrl: async () => mockLicenseState,
+      poll: async () => undefined,
+      onChanged: () => noop
+    },
+    updates: {
+      check: async () => ({ ok: true, currentVersion: '1.0.0', updateAvailable: false }),
+      fetchPending: async () => ({ ok: false, error: 'No update available' }),
+      getPending: async () => null,
+      start: async () => ({ ok: false, error: 'Updates are only available in the packaged app.' }),
+      cancel: async () => ({ ok: false, error: 'No update in progress' }),
+      onAvailable: () => noop,
+      onProgress: () => noop
     }
   }
 }

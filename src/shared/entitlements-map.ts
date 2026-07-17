@@ -48,7 +48,10 @@ export const GUEST_LIMITS: EnforcedEntitlements = {
   betaChannel: false
 }
 
-function parseCount(raw: string | undefined, fallback: number): { max: number; unlimited: boolean } {
+function parseCount(
+  raw: string | undefined,
+  fallback: number
+): { max: number; unlimited: boolean } {
   if (!raw || raw === 'false' || raw === '0') return { max: fallback, unlimited: false }
   if (raw === 'unlimited') return { max: Number.POSITIVE_INFINITY, unlimited: true }
   const n = Number(raw)
@@ -68,7 +71,9 @@ export function mapEntitlements(
   return {
     plan,
     maxProjects:
-      rawProjects === 'unlimited' ? Number.POSITIVE_INFINITY : Number(rawProjects) || FREE_LIMITS.maxProjects,
+      rawProjects === 'unlimited'
+        ? Number.POSITIVE_INFINITY
+        : Number(rawProjects) || FREE_LIMITS.maxProjects,
     maxDevices: devices.max,
     unlimitedDevices: devices.unlimited,
     batchExport: e.picobuild_batch_export === 'true',

@@ -1,7 +1,9 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { PicoBuildAPI } from '../shared/api'
 import type { Project } from '../shared/types/project'
+import type { LicenseState } from '../shared/types/license'
+import type { UpdateProgress, UpdateAvailablePayload } from '../shared/types/update'
 
 const api: PicoBuildAPI = {
   app: {
@@ -63,6 +65,47 @@ const api: PicoBuildAPI = {
       const handler = (_: unknown, maximized: boolean): void => cb(maximized)
       ipcRenderer.on('window:maximized-change', handler)
       return () => ipcRenderer.removeListener('window:maximized-change', handler)
+    }
+  },
+  system: {
+    openExternal: (url) => ipcRenderer.invoke('system:openExternal', url)
+  },
+  auth: {
+    start: () => ipcRenderer.invoke('auth:start'),
+    enterGuest: () => ipcRenderer.invoke('auth:guest'),
+    exitGuest: () => ipcRenderer.invoke('auth:exitGuest'),
+    signOut: () => ipcRenderer.invoke('auth:signOut'),
+    status: () => ipcRenderer.invoke('auth:status')
+  },
+  license: {
+    state: () => ipcRenderer.invoke('license:state'),
+    entitlements: () => ipcRenderer.invoke('license:entitlements'),
+    activate: (opts) => ipcRenderer.invoke('license:activate', opts),
+    refresh: () => ipcRenderer.invoke('license:refresh'),
+    clear: () => ipcRenderer.invoke('license:clear'),
+    setServerUrl: (url) => ipcRenderer.invoke('license:setServerUrl', url),
+    poll: () => ipcRenderer.invoke('license:poll'),
+    onChanged: (cb) => {
+      const handler = (_e: IpcRendererEvent, state: LicenseState): void => cb(state)
+      ipcRenderer.on('license:changed', handler)
+      return () => ipcRenderer.removeListener('license:changed', handler)
+    }
+  },
+  updates: {
+    check: () => ipcRenderer.invoke('updates:check'),
+    fetchPending: () => ipcRenderer.invoke('updates:fetch'),
+    getPending: () => ipcRenderer.invoke('updates:pending'),
+    start: (version) => ipcRenderer.invoke('updates:start', version),
+    cancel: () => ipcRenderer.invoke('updates:cancel'),
+    onAvailable: (cb) => {
+      const handler = (_e: IpcRendererEvent, payload: UpdateAvailablePayload): void => cb(payload)
+      ipcRenderer.on('updates:available', handler)
+      return () => ipcRenderer.removeListener('updates:available', handler)
+    },
+    onProgress: (cb) => {
+      const handler = (_e: IpcRendererEvent, progress: UpdateProgress): void => cb(progress)
+      ipcRenderer.on('updates:progress', handler)
+      return () => ipcRenderer.removeListener('updates:progress', handler)
     }
   }
 }

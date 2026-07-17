@@ -3,8 +3,12 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc/handlers'
+import { registerLicensingIpc, attachLicenseFocusHandler } from './ipc/licensing'
+import { registerUpdateIpc, notifyUpdateAvailable } from './ipc/updates'
+import { checkForUpdates } from './lib/updates'
+import { getLicenseState } from './lib/licensing'
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   const isMac = process.platform === 'darwin'
 
   const mainWindow = new BrowserWindow({
@@ -49,6 +53,9 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  attachLicenseFocusHandler(mainWindow)
+  return mainWindow
 }
 
 app.whenReady().then(() => {
@@ -59,11 +66,26 @@ app.whenReady().then(() => {
   })
 
   registerIpcHandlers()
+  registerLicensingIpc()
+  registerUpdateIpc()
   createWindow()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  // Required-update gate shortly after launch (optional updates surface via
+  // the Account page's manual/periodic check instead of an interruptive prompt).
+  setTimeout(async () => {
+    const res = await checkForUpdates(getLicenseState().serverUrl)
+    if (res.ok && res.updateAvailable && res.required && res.latest) {
+      notifyUpdateAvailable({
+        version: res.latest.version,
+        required: true,
+        releaseNotes: res.latest.releaseNotes
+      })
+    }
+  }, 5000)
 })
 
 app.on('window-all-closed', () => {

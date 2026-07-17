@@ -16,7 +16,7 @@ export interface LicenseState {
   /** Browse app UI without DevTune sign-in; all features locked until OAuth. */
   guestMode?: boolean
   seatsUsed?: number
-  /** masked, e.g. PBD-****-****-****-A1B2 */
+  /** masked, e.g. DVF-****-****-****-A1B2 (the website's generateLicenseKey() prefix is shared across products) */
   licenseKey?: string
   /** marketing/display key e.g. freeapp2026 */
   displayKey?: string

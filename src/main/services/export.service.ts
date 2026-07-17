@@ -2,11 +2,7 @@ import { existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import sharp, { type Sharp } from 'sharp'
 import type { Adjustments, ExportFormat, ImageAsset, Project } from '../../shared/types/project'
-import {
-  combinedBrightness,
-  combinedHue,
-  combinedSaturation
-} from '../../shared/lib/adjustments'
+import { combinedBrightness, combinedHue, combinedSaturation } from '../../shared/lib/adjustments'
 import { formatRenamePattern, ensureUniqueNames } from '../../shared/lib/format'
 
 function parseHexColor(hex: string): { r: number; g: number; b: number } {
@@ -85,10 +81,7 @@ async function prepareCompositeLayer(
   if (cropWidth <= 0 || cropHeight <= 0) return null
 
   const needsCrop =
-    cropLeft > 0 ||
-    cropTop > 0 ||
-    cropWidth < imageWidth ||
-    cropHeight < imageHeight
+    cropLeft > 0 || cropTop > 0 || cropWidth < imageWidth || cropHeight < imageHeight
 
   const input = needsCrop
     ? await sharp(imageBuffer)
@@ -213,6 +206,11 @@ const activeJobs = new Map<string, { cancelled: boolean }>()
 export function cancelExportJob(jobId: string): void {
   const job = activeJobs.get(jobId)
   if (job) job.cancelled = true
+}
+
+/** Used by the updater to avoid replacing the app binary mid-export. */
+export function hasActiveExportJobs(): boolean {
+  return activeJobs.size > 0
 }
 
 export async function exportAssets(

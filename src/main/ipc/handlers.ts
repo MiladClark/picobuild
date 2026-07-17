@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, app } from 'electron'
+import { ipcMain, BrowserWindow, app, shell } from 'electron'
 import { join } from 'path'
 import { existsSync, readdirSync } from 'fs'
 import { is } from '@electron-toolkit/utils'
@@ -153,4 +153,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('window:isMaximized', (e) => {
     return BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false
   })
+
+  ipcMain.handle('system:openExternal', (_e, url: string) => shell.openExternal(url))
 }
