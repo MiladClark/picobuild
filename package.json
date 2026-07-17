@@ -19,13 +19,14 @@
     "build:unpack": "npm run build && electron-builder --dir --publish never",
     "build:win": "npm run build && electron-builder --win --publish never",
     "build:mac": "npm run build && electron-builder --mac --publish never",
-    "build:linux": "npm run build && electron-builder --linux --publish never"
+    "build:linux": "npm run build && electron-builder --linux --publish never",
+    "release:win": "npm run build && electron-builder --win --publish always",
+    "release:mac": "npm run build && electron-builder --mac --publish always"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@imgly/background-removal-node": "^1.4.5",
-    "@tailwindcss/vite": "^4.3.2",
     "clsx": "^2.1.1",
     "i18next": "^26.3.6",
     "konva": "^10.3.0",
@@ -35,7 +36,6 @@
     "react-router-dom": "^7.18.1",
     "sharp": "^0.35.3",
     "sonner": "^2.0.7",
-    "tailwindcss": "^4.3.2",
     "uuid": "^14.0.1",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
@@ -44,6 +44,7 @@
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
+    "@tailwindcss/vite": "^4.3.2",
     "@types/node": "^22.19.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -59,6 +60,7 @@
     "prettier": "^3.7.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3",
     "vite": "^7.2.6"
   }

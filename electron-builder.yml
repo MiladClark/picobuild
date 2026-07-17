@@ -2,24 +2,58 @@ appId: com.electron.app
 productName: picobuild
 directories:
   buildResources: build
+# NOTE: electron-builder's platform-scoped `files:` (under win/mac/linux
+# below) REPLACES this top-level array rather than merging with it — so the
+# base excludes are repeated in each platform block instead of relying on
+# inheritance. Keep all four blocks in sync when editing.
+#
+# `!dist/**` is the important one: without it, whatever was already sitting
+# in dist/ from a previous build (potentially hundreds of MB) gets packed
+# straight into the new app.asar, and every rebuild re-embeds the last one.
 files:
   - '!**/.vscode/*'
   - '!src/*'
+  - '!vite.preview.config.ts'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,package-lock.json}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!dist{,/**}'
+  - '!.git{,/**}'
+  - '!.claude{,/**}'
 asarUnpack:
   - resources/**
   - '**/node_modules/onnxruntime-node/**'
   - '**/node_modules/@imgly/background-removal-node/**'
   - '**/node_modules/sharp/**'
   - '**/node_modules/@img/**'
+# Electron ships ~55 locale .pak files for its native menus/dialogs by
+# default; the app is English-only, so keep just this one (saves ~44MB).
+electronLanguages:
+  - en-US
 win:
   executableName: picobuild
   target:
     - target: portable
       arch: [x64]
+    - target: nsis
+      arch: [x64]
+  # onnxruntime-node bundles a native binary per OS/arch; only win32-x64 is
+  # ever loaded here, so drop the other five (~105MB) from this build.
+  files:
+    - '!**/.vscode/*'
+    - '!src/*'
+    - '!vite.preview.config.ts'
+    - '!electron.vite.config.{js,ts,mjs,cjs}'
+    - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+    - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,package-lock.json}'
+    - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+    - '!dist{,/**}'
+    - '!.git{,/**}'
+    - '!.claude{,/**}'
+    - '!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**'
+    - '!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**'
+    - '!**/node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**'
 portable:
   artifactName: ${name}-${version}-portable.${ext}
 nsis:
@@ -31,6 +65,24 @@ mac:
   target:
     - target: zip
       arch: [x64, arm64]
+    - target: dmg
+      arch: [x64, arm64]
+  artifactName: ${name}-${version}-${arch}.${ext}
+  # Same pruning as win: keep only the darwin binaries (both archs, since we
+  # build universal x64+arm64 artifacts), drop win32/linux.
+  files:
+    - '!**/.vscode/*'
+    - '!src/*'
+    - '!vite.preview.config.ts'
+    - '!electron.vite.config.{js,ts,mjs,cjs}'
+    - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+    - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,package-lock.json}'
+    - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+    - '!dist{,/**}'
+    - '!.git{,/**}'
+    - '!.claude{,/**}'
+    - '!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**'
+    - '!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**'
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -39,7 +91,7 @@ mac:
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
 linux:
   target:
     - AppImage
@@ -47,9 +99,24 @@ linux:
     - deb
   maintainer: electronjs.org
   category: Utility
+  files:
+    - '!**/.vscode/*'
+    - '!src/*'
+    - '!vite.preview.config.ts'
+    - '!electron.vite.config.{js,ts,mjs,cjs}'
+    - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+    - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,package-lock.json}'
+    - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+    - '!dist{,/**}'
+    - '!.git{,/**}'
+    - '!.claude{,/**}'
+    - '!**/node_modules/onnxruntime-node/bin/napi-v3/win32/**'
+    - '!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**'
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: MiladClark
+  repo: picobuild
+  releaseType: release
