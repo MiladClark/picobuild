@@ -22,6 +22,7 @@ import { useProjectSave } from '@renderer/hooks/use-project-save'
 import { useImportAssets } from '@renderer/hooks/use-import-assets'
 import { useApplyHistory } from '@renderer/hooks/use-apply-history'
 import { WindowControls } from './WindowControls'
+import logoUrl from '@renderer/assets/logo.svg'
 
 const barBtn = 'h-7 w-7'
 
@@ -85,9 +86,7 @@ function Logo(): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[var(--radius-sm)] bg-[image:var(--accent-grad)] text-[11px] font-bold text-white shadow-[var(--shadow-sm),var(--edge-highlight)]">
-        P
-      </div>
+      <img src={logoUrl} alt="" className="h-[22px] w-[22px] shrink-0" />
       <span className="text-[13px] font-semibold tracking-tight text-[var(--text-primary)]">
         {t('app.name')}
       </span>

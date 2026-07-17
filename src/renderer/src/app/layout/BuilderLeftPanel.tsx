@@ -9,16 +9,18 @@ import {
   Grid3x3,
   Ruler,
   Magnet,
-  Sparkles
+  Sparkles,
+  Keyboard
 } from 'lucide-react'
 import { useAppStore } from '@renderer/stores/app-store'
 import { useProjectStore } from '@renderer/stores/project-store'
 import { useEditorStore } from '@renderer/stores/editor-store'
 import { ToolbarButton, ToolbarDivider } from '@renderer/components/ui'
 import { useAlignActions } from '@renderer/hooks/use-align-actions'
+import { ShortcutsModal } from '@renderer/features/shortcuts/ShortcutsModal'
 
 export function BuilderLeftPanel(): React.JSX.Element | null {
-  const { activeTool, setActiveTool } = useAppStore()
+  const { activeTool, setActiveTool, shortcutsOpen, setShortcutsOpen } = useAppStore()
 
   const project = useProjectStore((s) => s.project)
   const selectedAssetId = useProjectStore((s) => s.selectedAssetId)
@@ -150,7 +152,14 @@ export function BuilderLeftPanel(): React.JSX.Element | null {
         <ToolbarDivider />
         {transformTools}
       </div>
-      <div className="tool-rail-footer">{viewTools}</div>
+      <div className="tool-rail-footer">
+        {viewTools}
+        <ToolbarDivider />
+        <ToolbarButton title="Keyboard shortcuts (Shift+?)" onClick={() => setShortcutsOpen(true)}>
+          <Keyboard size={15} />
+        </ToolbarButton>
+      </div>
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </aside>
   )
 }

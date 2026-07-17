@@ -55,6 +55,7 @@ interface ModalProps {
   title: string
   children: ReactNode
   footer?: ReactNode
+  size?: 'md' | 'lg'
 }
 
 export function Modal({
@@ -62,7 +63,8 @@ export function Modal({
   onClose,
   title,
   children,
-  footer
+  footer,
+  size = 'md'
 }: ModalProps): React.JSX.Element | null {
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
@@ -80,7 +82,12 @@ export function Modal({
         className="overlay-animate absolute inset-0 bg-black/70 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="modal-animate relative z-10 w-full max-w-md overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-panel)] shadow-[var(--shadow-lg)]">
+      <div
+        className={cn(
+          'modal-animate relative z-10 w-full overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-panel)] shadow-[var(--shadow-lg)]',
+          size === 'lg' ? 'max-w-2xl' : 'max-w-md'
+        )}
+      >
         <div className="flex items-center justify-between gap-4 px-5 pb-1 pt-4">
           <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
             {title}

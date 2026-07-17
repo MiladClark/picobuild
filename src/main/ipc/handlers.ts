@@ -40,10 +40,13 @@ export function registerIpcHandlers(): void {
     const resourcesPath = is.dev
       ? join(app.getAppPath(), 'resources')
       : join(process.resourcesPath, 'resources')
-    if (!existsSync(resourcesPath)) return []
-    return readdirSync(resourcesPath)
+    // Dedicated subfolder so app assets (icon, logo) living alongside it in
+    // resources/ are never mistaken for demo product photos.
+    const samplesPath = join(resourcesPath, 'samples')
+    if (!existsSync(samplesPath)) return []
+    return readdirSync(samplesPath)
       .filter((f) => /\.(png|jpe?g|webp|avif)$/i.test(f))
-      .map((f) => join(resourcesPath, f))
+      .map((f) => join(samplesPath, f))
   })
 
   ipcMain.handle('project:listRecent', () => listRecentProjects())

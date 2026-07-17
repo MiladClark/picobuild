@@ -17,12 +17,20 @@ asarUnpack:
   - '**/node_modules/@img/**'
 win:
   executableName: picobuild
+  target:
+    - target: portable
+      arch: [x64]
+portable:
+  artifactName: ${name}-${version}-portable.${ext}
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  target:
+    - target: zip
+      arch: [x64, arm64]
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.

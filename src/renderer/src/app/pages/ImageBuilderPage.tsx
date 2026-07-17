@@ -6,8 +6,13 @@ import { Button } from '@renderer/components/ui'
 import { EditorCanvas } from '@renderer/features/canvas/EditorCanvas'
 import { useProjectStore } from '@renderer/stores/project-store'
 import { useAppStore } from '@renderer/stores/app-store'
+import { useEditorStore } from '@renderer/stores/editor-store'
 import { useProjectSave } from '@renderer/hooks/use-project-save'
 import { useApplyHistory } from '@renderer/hooks/use-apply-history'
+
+const ZOOM_STEP = 0.15
+const NUDGE_STEP = 1
+const NUDGE_STEP_LARGE = 10
 
 function useAutoSave(): void {
   const project = useProjectStore((s) => s.project)
@@ -35,14 +40,23 @@ export function ImageBuilderPage(): React.JSX.Element {
   const navigate = useNavigate()
   const project = useProjectStore((s) => s.project)
   const updateAsset = useProjectStore((s) => s.updateAsset)
+  const selectedAssetId = useProjectStore((s) => s.selectedAssetId)
+  const removeAssets = useProjectStore((s) => s.removeAssets)
   const {
     setActiveTool,
+    activeTool,
     toggleFocusMode,
     setFocusMode,
     focusMode,
     setRightPanelTab,
-    setRightCollapsed
+    setRightCollapsed,
+    zoom,
+    setZoom,
+    setPan,
+    fitToView,
+    toggleShortcuts
   } = useAppStore()
+  const pushHistory = useEditorStore((s) => s.pushHistory)
   const handleSave = useProjectSave()
   const { undo, redo } = useApplyHistory()
 
@@ -88,19 +102,86 @@ export function ImageBuilderPage(): React.JSX.Element {
         setRightCollapsed(false)
         setRightPanelTab('export')
       }
+
+      // Zoom & pan
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault()
+        setZoom(zoom + ZOOM_STEP)
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault()
+        setZoom(zoom - ZOOM_STEP)
+      }
+      if (e.shiftKey && e.code === 'Digit1') {
+        e.preventDefault()
+        setZoom(1)
+        setPan(0, 0)
+      }
+      if (e.shiftKey && e.code === 'Digit0') {
+        e.preventDefault()
+        fitToView()
+      }
+
+      // Show/hide the keyboard-shortcuts cheat sheet
+      if (e.shiftKey && e.code === 'Slash') {
+        e.preventDefault()
+        toggleShortcuts()
+      }
+
+      // Nudge / delete the selected image
+      const asset = project?.assets.find((a) => a.id === selectedAssetId)
+      if (asset && (activeTool === 'select' || activeTool === 'move')) {
+        const step = e.shiftKey ? NUDGE_STEP_LARGE : NUDGE_STEP
+        let dx = 0
+        let dy = 0
+        if (e.key === 'ArrowLeft') dx = -step
+        else if (e.key === 'ArrowRight') dx = step
+        else if (e.key === 'ArrowUp') dy = -step
+        else if (e.key === 'ArrowDown') dy = step
+        if (dx !== 0 || dy !== 0) {
+          e.preventDefault()
+          pushHistory({
+            assetId: asset.id,
+            transform: { ...asset.transform },
+            adjustments: { ...asset.adjustments }
+          })
+          updateAsset(asset.id, {
+            transform: { ...asset.transform, x: asset.transform.x + dx, y: asset.transform.y + dy }
+          })
+        }
+      }
+      if (
+        (e.key === 'Delete' || e.key === 'Backspace') &&
+        selectedAssetId &&
+        activeTool !== 'crop'
+      ) {
+        e.preventDefault()
+        removeAssets([selectedAssetId])
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [
     handleSave,
     setActiveTool,
+    activeTool,
     undo,
     redo,
     focusMode,
     setFocusMode,
     toggleFocusMode,
     setRightPanelTab,
-    setRightCollapsed
+    setRightCollapsed,
+    zoom,
+    setZoom,
+    setPan,
+    fitToView,
+    toggleShortcuts,
+    project,
+    selectedAssetId,
+    updateAsset,
+    removeAssets,
+    pushHistory
   ])
 
   if (!project) {

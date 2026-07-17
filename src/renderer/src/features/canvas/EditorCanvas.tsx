@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useProjectStore } from '@renderer/stores/project-store'
 import { useEditorStore } from '@renderer/stores/editor-store'
-import { useAppStore } from '@renderer/stores/app-store'
+import { useAppStore, clampZoom } from '@renderer/stores/app-store'
 import { useImagePreview } from '@renderer/hooks/use-image-loader'
 import { useImportAssets } from '@renderer/hooks/use-import-assets'
 import { GRID_MAJOR, GRID_STEP, snapContentToCanvasGrid } from '@renderer/lib/grid'
@@ -152,7 +152,10 @@ export function EditorCanvas(): React.JSX.Element {
   const updateAsset = useProjectStore((s) => s.updateAsset)
   const { pickAndImport, importPaths } = useImportAssets()
   const zoom = useAppStore((s) => s.zoom)
-  const fitViewRequest = useAppStore((s) => s.fitViewRequest)
+  const panX = useAppStore((s) => s.panX)
+  const panY = useAppStore((s) => s.panY)
+  const setPan = useAppStore((s) => s.setPan)
+  const setZoomAndPan = useAppStore((s) => s.setZoomAndPan)
   const setCanvasFitScale = useAppStore((s) => s.setCanvasFitScale)
   const focusMode = useAppStore((s) => s.focusMode)
   const rightCollapsed = useAppStore((s) => s.rightCollapsed)
@@ -176,13 +179,36 @@ export function EditorCanvas(): React.JSX.Element {
   const cropRectRef = useRef<Konva.Rect>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
   const [isDragOver, setIsDragOver] = useState(false)
-  const [fitScale, setFitScale] = useState(1)
   const [sourceSize, setSourceSize] = useState({ width: 0, height: 0 })
   const [cropRatio, setCropRatio] = useState<number | null>(null)
+  const [isSpacePressed, setIsSpacePressed] = useState(false)
+  const [isPanning, setIsPanning] = useState(false)
 
   const asset = project?.assets.find((a) => a.id === selectedAssetId)
   const imagePath = asset?.processedPath || asset?.sourcePath
   const { image, state: imageState, error: imageError } = useImagePreview(imagePath)
+
+  const stageWidth = Math.max(1, stageSize.width)
+  const stageHeight = Math.max(1, stageSize.height)
+  // Purely derived from stageSize/canvas dims — a render-time value rather
+  // than effect-driven state, so it's never a render behind. "Fit to view"
+  // resets zoom/pan (already subscribed to below), which alone forces the
+  // re-render needed to pick up a changed stageSize/canvas here.
+  const fitScale = project
+    ? computeCanvasFitScale(stageWidth, stageHeight, project.canvas.width, project.canvas.height)
+    : 1
+
+  useEffect(() => {
+    setCanvasFitScale(fitScale)
+  }, [fitScale, setCanvasFitScale])
+
+  // Reset sourceSize synchronously when the image path changes away (render-time
+  // derived-state adjustment); the effect below only handles the actual async fetch.
+  const [lastSizeImagePath, setLastSizeImagePath] = useState(imagePath)
+  if (imagePath !== lastSizeImagePath) {
+    setLastSizeImagePath(imagePath)
+    if (!imagePath) setSourceSize({ width: 0, height: 0 })
+  }
 
   useEffect(() => {
     const node = imageRef.current
@@ -231,32 +257,7 @@ export function EditorCanvas(): React.JSX.Element {
   }, [showRuler, focusMode, rightCollapsed])
 
   useEffect(() => {
-    if (!project || stageSize.width <= 0 || stageSize.height <= 0) return
-
-    const scale = computeCanvasFitScale(
-      stageSize.width,
-      stageSize.height,
-      project.canvas.width,
-      project.canvas.height
-    )
-    setFitScale(scale)
-    setCanvasFitScale(scale)
-  }, [
-    project,
-    project?.canvas.width,
-    project?.canvas.height,
-    stageSize,
-    fitViewRequest,
-    focusMode,
-    rightCollapsed,
-    setCanvasFitScale
-  ])
-
-  useEffect(() => {
-    if (!imagePath) {
-      setSourceSize({ width: 0, height: 0 })
-      return
-    }
+    if (!imagePath) return
     window.api.image
       .metadata(imagePath)
       .then((meta) => {
@@ -401,6 +402,51 @@ export function EditorCanvas(): React.JSX.Element {
     return () => window.removeEventListener('keydown', handler)
   }, [activeTool, applyCrop, cancelCrop])
 
+  // Hold Space for hand-tool panning (Photoshop/Figma convention), independent
+  // of the active tool so it works mid-select, mid-move, even mid-crop.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.code !== 'Space' || e.repeat) return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      e.preventDefault()
+      setIsSpacePressed(true)
+    }
+    const onKeyUp = (e: KeyboardEvent): void => {
+      if (e.code !== 'Space') return
+      setIsSpacePressed(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
+
+  const handlePanPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>): void => {
+      if (!isSpacePressed) return
+      e.preventDefault()
+      setIsPanning(true)
+      const startClientX = e.clientX
+      const startClientY = e.clientY
+      const startPanX = panX
+      const startPanY = panY
+
+      const onMove = (ev: PointerEvent): void => {
+        setPan(startPanX + (ev.clientX - startClientX), startPanY + (ev.clientY - startClientY))
+      }
+      const onUp = (): void => {
+        setIsPanning(false)
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    },
+    [isSpacePressed, panX, panY, setPan]
+  )
+
   const snap = useCallback(
     (contentCoord: number, marginOffset: number) =>
       snapEnabled ? snapContentToCanvasGrid(contentCoord, marginOffset) : contentCoord,
@@ -428,15 +474,44 @@ export function EditorCanvas(): React.JSX.Element {
     )
   }
 
-  const stageWidth = Math.max(1, stageSize.width)
-  const stageHeight = Math.max(1, stageSize.height)
-
   const { canvas, margins } = project
   const displayScale = fitScale * zoom
   const displayW = canvas.width * displayScale
   const displayH = canvas.height * displayScale
-  const offsetX = (stageWidth - displayW) / 2
-  const offsetY = (stageHeight - displayH) / 2
+  const offsetX = (stageWidth - displayW) / 2 + panX
+  const offsetY = (stageHeight - displayH) / 2 + panY
+
+  const ZOOM_WHEEL_SENSITIVITY = 0.0018
+
+  const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>): void => {
+    e.evt.preventDefault()
+
+    if (e.evt.ctrlKey || e.evt.metaKey) {
+      const stage = e.target.getStage()
+      const pointer = stage?.getPointerPosition()
+      if (!pointer) return
+
+      const factor = Math.exp(-e.evt.deltaY * ZOOM_WHEEL_SENSITIVITY)
+      const newZoom = clampZoom(zoom * factor)
+      if (newZoom === zoom) return
+
+      const oldScale = fitScale * zoom
+      const newScale = fitScale * newZoom
+      const canvasPointX = (pointer.x - offsetX) / oldScale
+      const canvasPointY = (pointer.y - offsetY) / oldScale
+
+      const newBaseOffsetX = (stageWidth - canvas.width * newScale) / 2
+      const newBaseOffsetY = (stageHeight - canvas.height * newScale) / 2
+      const newPanX = pointer.x - canvasPointX * newScale - newBaseOffsetX
+      const newPanY = pointer.y - canvasPointY * newScale - newBaseOffsetY
+
+      setZoomAndPan(newZoom, newPanX, newPanY)
+    } else {
+      const dx = e.evt.shiftKey ? e.evt.deltaY : e.evt.deltaX
+      const dy = e.evt.shiftKey ? 0 : e.evt.deltaY
+      setPan(panX - dx, panY - dy)
+    }
+  }
 
   // Gradient renders top → bottom, matching the export pipeline (sharp SVG).
   const bgFillProps =
@@ -471,7 +546,7 @@ export function EditorCanvas(): React.JSX.Element {
       : null
 
   const isCropMode = activeTool === 'crop' && !!asset && !!cropDraft
-  const imageDraggable = activeTool === 'select' || activeTool === 'move'
+  const imageDraggable = (activeTool === 'select' || activeTool === 'move') && !isSpacePressed
 
   const cropAbsX = asset && cropDraft ? margins.left + asset.transform.x + cropDraft.x : 0
   const cropAbsY = asset && cropDraft ? margins.top + asset.transform.y + cropDraft.y : 0
@@ -489,13 +564,14 @@ export function EditorCanvas(): React.JSX.Element {
   return (
     <div
       ref={containerRef}
-      className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--bg-canvas)] ${isDragOver ? 'ring-2 ring-inset ring-[var(--accent)]' : ''}`}
+      className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--bg-canvas)] ${isDragOver ? 'ring-2 ring-inset ring-[var(--accent)]' : ''} ${isSpacePressed ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
       onDragOver={(e) => {
         e.preventDefault()
         setIsDragOver(true)
       }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
+      onPointerDown={handlePanPointerDown}
     >
       <CanvasWorkspace
         showRuler={showRuler}
@@ -507,7 +583,7 @@ export function EditorCanvas(): React.JSX.Element {
       >
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <div ref={viewportRef} className="absolute inset-0">
-            <Stage width={stageWidth} height={stageHeight}>
+            <Stage width={stageWidth} height={stageHeight} onWheel={handleWheel}>
               <Layer {...layerProps}>
                 <Rect
                   width={canvas.width}
@@ -665,7 +741,7 @@ export function EditorCanvas(): React.JSX.Element {
                       strokeWidth={2}
                       strokeScaleEnabled={false}
                       listening
-                      draggable
+                      draggable={!isSpacePressed}
                       onDragMove={(e) => {
                         // Live update so the dim overlay + thirds grid follow the drag.
                         const imgX = margins.left + asset.transform.x
