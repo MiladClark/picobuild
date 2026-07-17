@@ -1,6 +1,6 @@
 {
   "name": "picobuild",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Professional image builder for product photography",
   "main": "./out/main/index.js",
   "author": "example.com",
