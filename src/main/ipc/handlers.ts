@@ -98,8 +98,8 @@ export function registerIpcHandlers(): void {
       exportAssets(project, assetIds, outputDir, jobId, (progress) => {
         win?.webContents.send('export:progress', progress)
       })
-        .then((results) => {
-          win?.webContents.send('export:complete', { jobId, results })
+        .then(({ results, cancelled }) => {
+          win?.webContents.send('export:complete', { jobId, results, cancelled })
         })
         .catch((err) => {
           win?.webContents.send('export:complete', {

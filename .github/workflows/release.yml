@@ -105,6 +105,46 @@ jobs:
           path: release-info.json
           retention-days: 1
 
+      # electron-builder's win.target also builds the NSIS Setup.exe (see
+      # electron-builder.yml) and it's already uploaded to the draft release
+      # above by --publish always — this just registers it with DevTune too,
+      # under a distinct 'windows-setup' platform id so it doesn't collide
+      # with the portable exe's 'windows' registration.
+      - name: Prepare Setup installer manifest
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          set -e
+          FILE=$(ls dist/*-setup.exe | head -n 1)
+          if [ -z "$FILE" ]; then
+            echo "::error::No Setup installer artifact matched dist/*-setup.exe"
+            exit 1
+          fi
+          VERSION="$(node -p "require('./package.json').version")"
+          node -e "
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const file = process.argv[1];
+            const hash = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+            const info = {
+              platform: 'windows-setup',
+              version: '$VERSION',
+              fileName: require('path').basename(file),
+              sha256: hash,
+              sizeBytes: fs.statSync(file).size,
+            };
+            fs.writeFileSync('release-info-setup.json', JSON.stringify(info, null, 2));
+            console.log(info);
+          " "$FILE"
+
+      - name: Upload Setup installer release-info artifact
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-info-windows-setup
+          path: release-info-setup.json
+          retention-days: 1
+
   # All three jobs upload to the same draft release in parallel (see the
   # releaseType comment in electron-builder.yml). Only after all of them have
   # succeeded do we flip it from draft to a real, visible release — a single

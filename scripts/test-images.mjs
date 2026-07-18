@@ -3,7 +3,7 @@
  * Run: node scripts/test-images.mjs
  */
 import sharp from 'sharp'
-import { readFileSync, existsSync } from 'fs'
+import { existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -83,9 +83,20 @@ await test('Project JSON roundtrip', async () => {
         displayName: 'test.png',
         transform: { x: 0, y: 0, width: 500, height: 500, rotation: 0, flipX: false, flipY: false },
         adjustments: {
-          brightness: 0, exposure: 0, contrast: 0, saturation: 0, vibrance: 0,
-          highlights: 0, shadows: 0, whites: 0, blacks: 0, temperature: 0, tint: 0, hue: 0,
-          sharpness: 0, blur: 0
+          brightness: 0,
+          exposure: 0,
+          contrast: 0,
+          saturation: 0,
+          vibrance: 0,
+          highlights: 0,
+          shadows: 0,
+          whites: 0,
+          blacks: 0,
+          temperature: 0,
+          tint: 0,
+          hue: 0,
+          sharpness: 0,
+          blur: 0
         },
         status: 'completed'
       }

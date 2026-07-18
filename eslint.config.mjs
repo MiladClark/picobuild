@@ -6,7 +6,16 @@ import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
 
 export default defineConfig(
-  { ignores: ['**/node_modules', '**/dist', '**/out'] },
+  {
+    ignores: [
+      '**/node_modules',
+      '**/dist',
+      '**/out',
+      // Vendored/generated — not source this project owns or should lint.
+      'src/renderer/public/**',
+      'resources/**'
+    ]
+  },
   tseslint.configs.recommended,
   eslintPluginReact.configs.flat.recommended,
   eslintPluginReact.configs.flat['jsx-runtime'],

@@ -17,7 +17,10 @@ export function ExportPanel(): React.JSX.Element {
   const [previewNames, setPreviewNames] = useState<string[]>([])
 
   useEffect(() => {
-    const unsub1 = window.api.export.onProgress((p) => setProgress(p.progress))
+    const unsub1 = window.api.export.onProgress((p) => {
+      if (jobIdRef.current && p.jobId !== jobIdRef.current) return
+      setProgress(p.progress)
+    })
     const unsub2 = window.api.export.onComplete((data) => {
       if (jobIdRef.current && data.jobId !== jobIdRef.current) return
       setExporting(false)
@@ -32,7 +35,11 @@ export function ExportPanel(): React.JSX.Element {
       const failed = data.results.filter((r) => r.status === 'failed')
       const succeeded = data.results.filter((r) => r.status === 'completed')
 
-      if (failed.length > 0 && succeeded.length === 0) {
+      if (data.cancelled) {
+        toast.warning(
+          `Export cancelled — ${succeeded.length} of ${succeeded.length + failed.length} file(s) were saved`
+        )
+      } else if (failed.length > 0 && succeeded.length === 0) {
         toast.error(failed[0].error ?? 'Export failed')
       } else if (failed.length > 0) {
         toast.warning(`Exported ${succeeded.length} file(s), ${failed.length} failed`)

@@ -213,13 +213,18 @@ export function hasActiveExportJobs(): boolean {
   return activeJobs.size > 0
 }
 
+export interface ExportRunResult {
+  results: ExportResult[]
+  cancelled: boolean
+}
+
 export async function exportAssets(
   project: Project,
   assetIds: string[],
   outputDir: string,
   jobId: string,
   onProgress: (p: ExportProgress) => void
-): Promise<ExportResult[]> {
+): Promise<ExportRunResult> {
   activeJobs.set(jobId, { cancelled: false })
   if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true })
 
@@ -240,10 +245,14 @@ export async function exportAssets(
 
   const results: ExportResult[] = []
   const total = assets.length
+  let cancelled = false
 
   for (let i = 0; i < assets.length; i++) {
     const job = activeJobs.get(jobId)
-    if (job?.cancelled) break
+    if (job?.cancelled) {
+      cancelled = true
+      break
+    }
 
     const asset = assets[i]
     const fileName = fileNames[i]
@@ -285,7 +294,7 @@ export async function exportAssets(
   }
 
   activeJobs.delete(jobId)
-  return results
+  return { results, cancelled }
 }
 
 async function renderAsset(

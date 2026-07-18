@@ -63,7 +63,12 @@ export interface PicoBuildAPI {
     cancel: (jobId: string) => Promise<void>
     onProgress: (cb: (p: ExportProgress) => void) => () => void
     onComplete: (
-      cb: (data: { jobId: string; results: ExportResult[]; error?: string }) => void
+      cb: (data: {
+        jobId: string
+        results: ExportResult[]
+        cancelled?: boolean
+        error?: string
+      }) => void
     ) => () => void
   }
   background: {

@@ -19,12 +19,14 @@ export function UpdateModal({
   required,
   canCancel,
   onCancel,
+  onRetry,
   onDismiss
 }: {
   progress: UpdateProgress
   required?: boolean
   canCancel?: boolean
   onCancel?: () => void
+  onRetry?: () => void
   onDismiss?: () => void
 }): React.JSX.Element {
   const busy =
@@ -79,6 +81,11 @@ export function UpdateModal({
         {canCancel && onCancel && (
           <Button variant="secondary" size="md" onClick={onCancel}>
             Cancel download
+          </Button>
+        )}
+        {progress.phase === 'error' && onRetry && (
+          <Button variant="secondary" size="md" onClick={onRetry}>
+            Retry
           </Button>
         )}
         {(progress.phase === 'error' || progress.phase === 'cancelled') &&

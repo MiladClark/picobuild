@@ -12,13 +12,26 @@ export function formatRenamePattern(
 }
 
 export function ensureUniqueNames(names: string[]): string[] {
-  const seen = new Map<string, number>()
+  // Dedupe against already-EMITTED output names, not just previously-seen
+  // input names — otherwise a raw name that happens to match a name we just
+  // generated for an earlier collision (e.g. "shot.png", "shot.png",
+  // "shot-1.png") still collides and one export silently overwrites another.
+  const used = new Set<string>()
   return names.map((name) => {
-    const count = seen.get(name) ?? 0
-    seen.set(name, count + 1)
-    if (count === 0) return name
+    if (!used.has(name)) {
+      used.add(name)
+      return name
+    }
     const dot = name.lastIndexOf('.')
-    if (dot === -1) return `${name}-${count}`
-    return `${name.slice(0, dot)}-${count}${name.slice(dot)}`
+    const base = dot === -1 ? name : name.slice(0, dot)
+    const ext = dot === -1 ? '' : name.slice(dot)
+    let candidate: string
+    let n = 1
+    do {
+      candidate = `${base}-${n}${ext}`
+      n++
+    } while (used.has(candidate))
+    used.add(candidate)
+    return candidate
   })
 }

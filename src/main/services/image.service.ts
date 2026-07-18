@@ -4,7 +4,15 @@ import sharp from 'sharp'
 import type { ImageMetadata } from '../../shared/types/project'
 
 const IMAGE_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif', '.bmp', '.tiff', '.tif'
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.webp',
+  '.avif',
+  '.gif',
+  '.bmp',
+  '.tiff',
+  '.tif'
 ])
 
 export function isImageFile(filePath: string): boolean {
@@ -27,10 +35,7 @@ export async function getImageMetadata(filePath: string): Promise<ImageMetadata>
   }
 }
 
-export async function generateThumbnail(
-  filePath: string,
-  maxSize = 120
-): Promise<Buffer> {
+export async function generateThumbnail(filePath: string, maxSize = 120): Promise<Buffer> {
   return sharp(filePath)
     .resize(maxSize, maxSize, { fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 80 })
@@ -41,10 +46,7 @@ export function fileExists(filePath: string): boolean {
   return existsSync(filePath)
 }
 
-export async function getImagePreviewDataUrl(
-  filePath: string,
-  maxSize = 2048
-): Promise<string> {
+export async function getImagePreviewDataUrl(filePath: string, maxSize = 2048): Promise<string> {
   const meta = await sharp(filePath).metadata()
   const mime =
     meta.format === 'png'
@@ -65,6 +67,7 @@ export async function getImagePreviewDataUrl(
 export async function getImageDataUrl(filePath: string): Promise<string> {
   const buffer = await sharp(filePath).toBuffer()
   const meta = await sharp(filePath).metadata()
-  const mime = meta.format === 'png' ? 'image/png' : meta.format === 'webp' ? 'image/webp' : 'image/jpeg'
+  const mime =
+    meta.format === 'png' ? 'image/png' : meta.format === 'webp' ? 'image/webp' : 'image/jpeg'
   return `data:${mime};base64,${buffer.toString('base64')}`
 }

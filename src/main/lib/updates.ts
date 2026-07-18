@@ -19,7 +19,9 @@ export async function checkForUpdates(serverUrl?: string): Promise<UpdateCheckRe
     url.searchParams.set('version', current)
     url.searchParams.set(
       'platform',
-      process.platform === 'darwin' ? `macos-${process.arch === 'arm64' ? 'arm64' : 'x64'}` : 'windows'
+      process.platform === 'darwin'
+        ? `macos-${process.arch === 'arm64' ? 'arm64' : 'x64'}`
+        : 'windows'
     )
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
     if (!res.ok)
